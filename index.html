@@ -308,6 +308,8 @@ textarea.inp{resize:vertical;line-height:1.5}
 .more summary{min-height:44px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer;text-decoration:underline;text-underline-offset:3px;list-style:none}
 .more summary::-webkit-details-marker{display:none}
 .more[open] summary{margin-bottom:8px}
+.more .when-open,.more[open] .when-closed{display:none}
+.more[open] .when-open{display:inline}
 .qrow em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--ink-3);padding-top:3px}
 .warn{background:#FFF1C9;border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:600}
 .srow{display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center;padding:12px 16px}
@@ -759,7 +761,7 @@ function openRoulette(t, idx) {
     <div class="wheelwrap"><span class="pointer"></span><canvas id="wheel" width="600" height="600" aria-hidden="true"></canvas></div>
     <div id="spin-out"></div>
     <button class="btn team" id="spin-btn" data-act="spin-go">돌리기</button>
-    <details class="more" id="spin-list"><summary>나올 수 있는 미션 ${list.length}개 보기</summary><div class="group">${missionRows(list)}</div></details></div>`);
+    <details class="more" id="spin-list" open><summary><span class="when-closed">나올 수 있는 미션 ${list.length}개 펼치기</span><span class="when-open">나올 수 있는 미션 ${list.length}개 · 접기</span></summary><div class="group">${missionRows(list)}</div></details></div>`);
   const cv = document.getElementById('wheel');
   drawWheel(cv, list);
   if (document.fonts && document.fonts.load) document.fonts.load('20px "Bagel Fat One"').then(() => { if (cv.isConnected) drawWheel(cv, list); }).catch(() => {});
