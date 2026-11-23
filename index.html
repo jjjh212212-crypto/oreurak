@@ -301,6 +301,13 @@ textarea.inp{resize:vertical;line-height:1.5}
 .qrow p{font-size:12.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .qrow.off b,.qrow.off p{color:var(--ink-3);text-decoration:line-through}
 .qrow .qm{min-width:0}
+.qrow em.tag{align-self:start;padding:2px 9px;border-radius:99px;background:var(--c);color:var(--cf);white-space:nowrap}
+.qrow em.tag.now{background:var(--ink);color:#fff}
+.qrow.got b,.qrow.got p{color:var(--ink-3)}
+.sheet .group{background:#fff;flex:none}
+.more summary{min-height:44px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer;text-decoration:underline;text-underline-offset:3px;list-style:none}
+.more summary::-webkit-details-marker{display:none}
+.more[open] summary{margin-bottom:8px}
 .qrow em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--ink-3);padding-top:3px}
 .warn{background:#FFF1C9;border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:600}
 .srow{display:grid;grid-template-columns:58px 1fr auto;gap:12px;align-items:center;padding:12px 16px}
@@ -643,8 +650,27 @@ function teamView(t) {
   else if (act) h += `<a class="btn team" href="#cell-${t}-${act.idx}">진행 중인 미션 인증하기</a><p>${esc(act.mTitle)}</p>`;
   else if (n >= CELLS) h += `<p>16칸을 모두 완등했어요. 추첨권은 1인당 2장이에요.</p>`;
   else h += `<button class="btn team" data-act="spin" data-t="${t}">미션 룰렛 돌리기</button><p>${n ? '다음 칸을 열 차례예요.' : '룰렛을 돌려 첫 미션을 뽑아보세요.'} 회색 칸을 직접 눌러도 돼요.</p>`;
+  h += `<button class="btn quiet" data-act="mlist" data-t="${t}">룰렛 미션 목록 보기</button>`;
   popCell = null;
   return h + `</div>`;
+}
+
+/* 룰렛에 어떤 미션이 있는지 누구나 볼 수 있는 목록 */
+function missionRows(list, state) {
+  return list.map(m => {
+    const s = state && state[m.id];
+    return `<div class="qrow${s ? ' got' : ''}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${s ? `<em class="tag${s === 'now' ? ' now' : ''}">${s === 'now' ? '도전 중' : '완등'}</em>` : '<em></em>'}</div>`;
+  }).join('');
+}
+function openMissionList(t) {
+  const state = {};
+  Object.values(S.cells).forEach(c => { if (c.team === t && t + '-' + c.idx !== holdCell) state[c.missionId] = c.done ? 'done' : 'now'; });
+  const list = missionList().filter(m => m.active !== false || state[m.id]);
+  const left = list.filter(m => !state[m.id]).length;
+  openSheet(`<div class="tc${t}" style="display:flex;flex-direction:column;gap:16px">
+    <h2>룰렛 미션 목록</h2><p class="sheet-sub">${t}조 기준 · 전체 ${list.length}개 중 아직 안 뽑은 미션 ${left}개</p>
+    <div class="group">${list.length ? missionRows(list, state) : '<p class="empty" style="padding-top:14px">등록된 미션이 없어요.</p>'}</div>
+    <button class="btn" data-act="sheet-close">닫기</button></div>`);
 }
 
 function cellView(t, i) {
@@ -732,7 +758,8 @@ function openRoulette(t, idx) {
     <h2>미션 룰렛</h2><p class="sheet-sub">${t}조 · ${idx + 1}번 칸에 붙을 미션을 뽑아요. 남은 미션 ${list.length}개.</p>
     <div class="wheelwrap"><span class="pointer"></span><canvas id="wheel" width="600" height="600" aria-hidden="true"></canvas></div>
     <div id="spin-out"></div>
-    <button class="btn team" id="spin-btn" data-act="spin-go">돌리기</button></div>`);
+    <button class="btn team" id="spin-btn" data-act="spin-go">돌리기</button>
+    <details class="more" id="spin-list"><summary>나올 수 있는 미션 ${list.length}개 보기</summary><div class="group">${missionRows(list)}</div></details></div>`);
   const cv = document.getElementById('wheel');
   drawWheel(cv, list);
   if (document.fonts && document.fonts.load) document.fonts.load('20px "Bagel Fat One"').then(() => { if (cv.isConnected) drawWheel(cv, list); }).catch(() => {});
@@ -758,6 +785,7 @@ async function spinGo() {
   if (activeCell(t) || teamCells(t)[idx]) { closeSheet(); return toast('다른 조원이 방금 미션을 뽑았어요.'); }
   const k = Math.floor(Math.random() * list.length), m = list[k], id = t + '-' + idx;
   sheetLock = true; document.getElementById('spin-btn').disabled = true;
+  const sl = document.getElementById('spin-list'); if (sl) sl.remove();
   holdCell = id;
   const saved = await put('cells', id, { team: t, idx, missionId: m.id, no: m.no, mTitle: m.title, mDesc: m.desc || '', done: false, drawnBy: meId, drawnAt: Date.now() });
   if (!saved) { holdCell = null; closeSheet(); render(); return; }
@@ -993,6 +1021,7 @@ document.addEventListener('click', async e => {
     case 'fx-close': closeFx(); break;
     case 'spin': openRoulette(t, i); break;
     case 'spin-go': spinGo(); break;
+    case 'mlist': openMissionList(t); break;
     case 'locked': toast(!canEdit(t) ? `${t}조만 이 빙고판을 바꿀 수 있어요.` : activeCell(t) ? '진행 중인 미션을 먼저 완등해야 다음 칸을 열 수 있어요.' : '지금은 열 수 없는 칸이에요.'); break;
     case 'proof': openProof(t, i); break;
     case 'pf-who': { const on = el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-pressed', on); on ? pf.by.add(d.id) : pf.by.delete(d.id); break; }
